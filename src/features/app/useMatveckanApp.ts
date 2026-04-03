@@ -16,6 +16,11 @@ import {
 } from '../../domain/recipes';
 import { communityRecipes, seedRecipes } from '../../domain/seedData';
 import type { DayOfWeek, Recipe, UserProfile, WeeklyPlan } from '../../domain/types';
+import {
+  buildSupabaseConfig,
+  createSupabaseClient,
+  getSupabaseStatusLabel,
+} from '../../lib/supabase/client';
 
 const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
   Mondag: 'Vegetariskt',
@@ -28,6 +33,8 @@ const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
 });
 
 export const useMatveckanApp = () => {
+  const supabaseConfig = buildSupabaseConfig();
+  const supabaseClient = createSupabaseClient(supabaseConfig);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([...seedRecipes, ...communityRecipes]);
@@ -62,6 +69,8 @@ export const useMatveckanApp = () => {
     recipes,
     selectedDiscoverRecipe,
     shoppingList,
+    supabaseClient,
+    supabaseStatusLabel: getSupabaseStatusLabel(supabaseConfig),
     templateTags,
     weeklyPlan,
     signIn: (name: string, email: string) => {

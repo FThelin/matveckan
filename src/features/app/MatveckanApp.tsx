@@ -97,6 +97,7 @@ export const MatveckanApp = () => {
           <View>
             <Text style={styles.eyebrow}>Matveckan</Text>
             <Text style={styles.headerTitle}>Hej {app.currentUser.name}</Text>
+            <Text style={styles.detailMeta}>{app.supabaseStatusLabel}</Text>
           </View>
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{app.libraryRecipes.length} ratter</Text>

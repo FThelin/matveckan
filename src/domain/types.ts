@@ -49,6 +49,8 @@ export type Recipe = {
   isPublic: boolean;
   ratingEntries: RecipeRating[];
   comments: RecipeComment[];
+  averageRating?: number;
+  commentCount?: number;
 };
 
 export type UserProfile = {

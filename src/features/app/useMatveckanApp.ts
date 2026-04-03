@@ -22,6 +22,7 @@ import {
   getSupabaseStatusLabel,
 } from '../../lib/supabase/client';
 import { requestMagicLink } from '../../lib/supabase/auth';
+import { ensureProfileForSessionUser, loadSessionUser } from '../../lib/supabase/profileSync';
 import { loadCatalogRecipes } from '../../lib/supabase/repository';
 
 const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
@@ -48,6 +49,7 @@ export const useMatveckanApp = () => {
   const [authFeedback, setAuthFeedback] = useState<string | null>(null);
   const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
   const [catalogFeedback, setCatalogFeedback] = useState<string | null>(null);
+  const [sessionFeedback, setSessionFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -90,6 +92,49 @@ export const useMatveckanApp = () => {
     };
   }, [supabaseClient]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!supabaseClient) {
+      setSessionFeedback(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const run = async () => {
+      try {
+        const authUser = await loadSessionUser(supabaseClient);
+        if (!isMounted || !authUser) {
+          return;
+        }
+
+        const profile = await ensureProfileForSessionUser(supabaseClient, authUser);
+        if (!isMounted) {
+          return;
+        }
+
+        setProfiles([profile]);
+        setCurrentUserId(profile.id);
+        setSessionFeedback(`Inloggad som ${profile.email}`);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setSessionFeedback(
+          error instanceof Error ? error.message : 'Kunde inte lasa session fran Supabase',
+        );
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabaseClient]);
+
   const currentUser = profiles.find((profile) => profile.id === currentUserId) ?? null;
   const libraryRecipes = recipes.filter((recipe) => recipe.ownerId === currentUserId);
   const discoverSections = buildDiscoverSections(recipes, currentUserId ?? '');
@@ -121,6 +166,7 @@ export const useMatveckanApp = () => {
     isSendingMagicLink,
     authMode: supabaseClient ? 'supabase' : 'local',
     catalogFeedback,
+    sessionFeedback,
     templateTags,
     weeklyPlan,
     signIn: async (name: string, email: string) => {

@@ -106,6 +106,7 @@ export const MatveckanApp = () => {
             <Text style={styles.headerTitle}>Hej {app.currentUser.name}</Text>
             <Text style={styles.detailMeta}>{app.supabaseStatusLabel}</Text>
             {app.catalogFeedback ? <Text style={styles.detailMeta}>{app.catalogFeedback}</Text> : null}
+            {app.sessionFeedback ? <Text style={styles.detailMeta}>{app.sessionFeedback}</Text> : null}
           </View>
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{app.libraryRecipes.length} ratter</Text>

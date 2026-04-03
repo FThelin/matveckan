@@ -82,8 +82,15 @@ export const MatveckanApp = () => {
             autoCapitalize="none"
           />
           <Pressable style={styles.primaryButton} onPress={() => app.signIn(name, email)}>
-            <Text style={styles.primaryButtonText}>Skapa profil</Text>
+            <Text style={styles.primaryButtonText}>
+              {app.authMode === 'supabase'
+                ? app.isSendingMagicLink
+                  ? 'Skickar lank...'
+                  : 'Skicka magisk lank'
+                : 'Skapa profil'}
+            </Text>
           </Pressable>
+          {app.authFeedback ? <Text style={styles.detailMeta}>{app.authFeedback}</Text> : null}
         </View>
       </SafeAreaView>
     );

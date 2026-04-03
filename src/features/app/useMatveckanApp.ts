@@ -21,6 +21,7 @@ import {
   createSupabaseClient,
   getSupabaseStatusLabel,
 } from '../../lib/supabase/client';
+import { requestMagicLink } from '../../lib/supabase/auth';
 
 const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
   Mondag: 'Vegetariskt',
@@ -43,6 +44,8 @@ export const useMatveckanApp = () => {
   const [selectedDiscoverRecipeId, setSelectedDiscoverRecipeId] = useState<string | null>(
     seedRecipes[0]?.id ?? null,
   );
+  const [authFeedback, setAuthFeedback] = useState<string | null>(null);
+  const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
 
   const currentUser = profiles.find((profile) => profile.id === currentUserId) ?? null;
   const libraryRecipes = recipes.filter((recipe) => recipe.ownerId === currentUserId);
@@ -71,12 +74,30 @@ export const useMatveckanApp = () => {
     shoppingList,
     supabaseClient,
     supabaseStatusLabel: getSupabaseStatusLabel(supabaseConfig),
+    authFeedback,
+    isSendingMagicLink,
+    authMode: supabaseClient ? 'supabase' : 'local',
     templateTags,
     weeklyPlan,
-    signIn: (name: string, email: string) => {
+    signIn: async (name: string, email: string) => {
+      if (supabaseClient) {
+        setIsSendingMagicLink(true);
+        setAuthFeedback(null);
+        try {
+          await requestMagicLink(supabaseClient, email);
+          setAuthFeedback(`Magisk lank skickad till ${email.trim().toLowerCase()}`);
+        } catch (error) {
+          setAuthFeedback(error instanceof Error ? error.message : 'Kunde inte skicka inloggningslank');
+        } finally {
+          setIsSendingMagicLink(false);
+        }
+        return null;
+      }
+
       const profile = createProfile(name, email);
       setProfiles((current) => [...current, profile]);
       setCurrentUserId(profile.id);
+      setAuthFeedback(null);
       return profile;
     },
     addRecipe: (input: {

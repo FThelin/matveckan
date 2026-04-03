@@ -24,6 +24,7 @@ import {
 import { requestMagicLink } from '../../lib/supabase/auth';
 import { ensureProfileForSessionUser, loadSessionUser } from '../../lib/supabase/profileSync';
 import { copyRecipeRecord } from '../../lib/supabase/recipeCopy';
+import { addRecipeCommentRecord, upsertRecipeRatingRecord } from '../../lib/supabase/recipeFeedback';
 import { createRecipeRecord, loadOwnedRecipes } from '../../lib/supabase/recipeMutations';
 import { loadCatalogRecipes } from '../../lib/supabase/repository';
 
@@ -300,6 +301,30 @@ export const useMatveckanApp = () => {
         return;
       }
 
+      if (supabaseClient) {
+        void upsertRecipeRatingRecord(supabaseClient, {
+          recipeId,
+          userId: currentUserId,
+          value,
+        })
+          .then(() => {
+            setRecipes((current) =>
+              current.map((recipe) =>
+                recipe.id === recipeId
+                  ? upsertRecipeRating(recipe, { recipeId, userId: currentUserId, value })
+                  : recipe,
+              ),
+            );
+            setRecipeFeedback('Betyg sparat i Supabase');
+          })
+          .catch((error) => {
+            setRecipeFeedback(
+              error instanceof Error ? error.message : 'Kunde inte spara betyg i Supabase',
+            );
+          });
+        return;
+      }
+
       setRecipes((current) =>
         current.map((recipe) =>
           recipe.id === recipeId
@@ -310,6 +335,35 @@ export const useMatveckanApp = () => {
     },
     commentRecipe: (recipeId: string, text: string) => {
       if (!currentUser || !text.trim()) {
+        return;
+      }
+
+      if (supabaseClient) {
+        void addRecipeCommentRecord(supabaseClient, {
+          recipeId,
+          userId: currentUser.id,
+          authorName: currentUser.name,
+          text: text.trim(),
+        })
+          .then((comment) => {
+            setRecipes((current) =>
+              current.map((recipe) =>
+                recipe.id === recipeId
+                  ? {
+                      ...recipe,
+                      comments: [comment, ...recipe.comments],
+                      commentCount: (recipe.commentCount ?? recipe.comments.length) + 1,
+                    }
+                  : recipe,
+              ),
+            );
+            setRecipeFeedback('Kommentar sparad i Supabase');
+          })
+          .catch((error) => {
+            setRecipeFeedback(
+              error instanceof Error ? error.message : 'Kunde inte spara kommentar i Supabase',
+            );
+          });
         return;
       }
 

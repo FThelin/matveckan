@@ -29,6 +29,7 @@ export const MatveckanApp = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('discover');
   const [name, setName] = useState('Fredrik');
   const [email, setEmail] = useState('fredrik@example.com');
+  const [searchText, setSearchText] = useState('');
   const [recipeName, setRecipeName] = useState('');
   const [recipeTags, setRecipeTags] = useState('Vegetariskt');
   const [recipeIngredients, setRecipeIngredients] = useState('');
@@ -37,6 +38,23 @@ export const MatveckanApp = () => {
   const [recipePublic, setRecipePublic] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [pantryText, setPantryText] = useState('');
+  const normalizedSearch = searchText.trim().toLowerCase();
+  const filteredBuiltIn = app.discoverSections.builtIn.filter((recipe) =>
+    normalizedSearch
+      ? [recipe.name, recipe.tags.join(' '), recipe.comments.map((comment) => comment.text).join(' ')].join(' ').toLowerCase().includes(normalizedSearch)
+      : true,
+  );
+  const filteredCommunity = app.discoverSections.community.filter((recipe) =>
+    normalizedSearch
+      ? [recipe.name, recipe.tags.join(' '), recipe.comments.map((comment) => comment.text).join(' ')].join(' ').toLowerCase().includes(normalizedSearch)
+      : true,
+  );
+  const visibleRecipes = [...filteredBuiltIn, ...filteredCommunity];
+  const activeDiscoverRecipe =
+    visibleRecipes.find((recipe) => recipe.id === app.selectedDiscoverRecipe?.id) ??
+    visibleRecipes[0] ??
+    null;
+  const publicLibraryRecipes = app.libraryRecipes.filter((recipe) => recipe.isPublic);
 
   if (!app.currentUser) {
     return (
@@ -101,44 +119,51 @@ export const MatveckanApp = () => {
 
         {activeTab === 'discover' ? (
           <View style={styles.section}>
+            <TextInput
+              accessibilityLabel="Sok recept"
+              style={styles.input}
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder="Sok bland inbyggda och publika recept"
+            />
             <Text style={styles.sectionTitle}>Inbyggda recept</Text>
-            {app.discoverSections.builtIn.map((recipe) => (
+            {filteredBuiltIn.map((recipe) => (
               <RecipeCard
                 key={recipe.id}
                 name={recipe.name}
                 subtitle={`${app.averageRating(recipe)} i betyg`}
-                active={app.selectedDiscoverRecipe?.id === recipe.id}
+                active={activeDiscoverRecipe?.id === recipe.id}
                 onPress={() => app.selectDiscoverRecipe(recipe.id)}
               />
             ))}
 
             <Text style={styles.sectionTitle}>Fran andra anvandare</Text>
-            {app.discoverSections.community.map((recipe) => (
+            {filteredCommunity.map((recipe) => (
               <RecipeCard
                 key={recipe.id}
                 name={recipe.name}
                 subtitle={`${app.averageRating(recipe)} i betyg`}
-                active={app.selectedDiscoverRecipe?.id === recipe.id}
+                active={activeDiscoverRecipe?.id === recipe.id}
                 onPress={() => app.selectDiscoverRecipe(recipe.id)}
               />
             ))}
 
-            {app.selectedDiscoverRecipe ? (
+            {activeDiscoverRecipe ? (
               <View style={styles.detailCard}>
-                <Image source={{ uri: app.selectedDiscoverRecipe.imageUri }} style={styles.detailImage} />
-                <Text style={styles.detailTitle}>{app.selectedDiscoverRecipe.name}</Text>
+                <Image source={{ uri: activeDiscoverRecipe.imageUri }} style={styles.detailImage} />
+                <Text style={styles.detailTitle}>{activeDiscoverRecipe.name}</Text>
                 <Text style={styles.detailMeta}>
-                  Taggar: {app.selectedDiscoverRecipe.tags.join(', ')}
+                  Taggar: {activeDiscoverRecipe.tags.join(', ')}
                 </Text>
                 <Text style={styles.detailMeta}>
-                  Betyg: {app.averageRating(app.selectedDiscoverRecipe)} / 5
+                  Betyg: {app.averageRating(activeDiscoverRecipe)} / 5
                 </Text>
                 <Text style={styles.detailMeta}>
-                  Kommentarer: {app.selectedDiscoverRecipe.comments.length}
+                  Kommentarer: {activeDiscoverRecipe.comments.length}
                 </Text>
                 <Pressable
                   style={styles.primaryButton}
-                  onPress={() => app.copyRecipe(app.selectedDiscoverRecipe!.id)}
+                  onPress={() => app.copyRecipe(activeDiscoverRecipe.id)}
                 >
                   <Text style={styles.primaryButtonText}>Kopiera till mitt bibliotek</Text>
                 </Pressable>
@@ -147,7 +172,7 @@ export const MatveckanApp = () => {
                     <Pressable
                       key={value}
                       style={styles.ratingButton}
-                      onPress={() => app.rateRecipe(app.selectedDiscoverRecipe!.id, value)}
+                      onPress={() => app.rateRecipe(activeDiscoverRecipe.id, value)}
                     >
                       <Text style={styles.ratingText}>{value}</Text>
                     </Pressable>
@@ -163,13 +188,13 @@ export const MatveckanApp = () => {
                 <Pressable
                   style={styles.secondaryButton}
                   onPress={() => {
-                    app.commentRecipe(app.selectedDiscoverRecipe!.id, commentText);
+                    app.commentRecipe(activeDiscoverRecipe.id, commentText);
                     setCommentText('');
                   }}
                 >
                   <Text style={styles.secondaryButtonText}>Lagg till kommentar</Text>
                 </Pressable>
-                {app.selectedDiscoverRecipe.comments.map((comment) => (
+                {activeDiscoverRecipe.comments.map((comment) => (
                   <View key={comment.id} style={styles.commentRow}>
                     <Text style={styles.commentAuthor}>{comment.authorName}</Text>
                     <Text style={styles.commentText}>{comment.text}</Text>
@@ -325,6 +350,18 @@ export const MatveckanApp = () => {
             <Text style={styles.sectionTitle}>{app.currentUser.name}</Text>
             <Text style={styles.detailMeta}>{app.currentUser.email}</Text>
             <Text style={styles.detailMeta}>Publika ratter: {app.publicRecipeCount}</Text>
+            <Text style={styles.sectionTitle}>Mina publika recept</Text>
+            {publicLibraryRecipes.length > 0 ? (
+              publicLibraryRecipes.map((recipe) => (
+                <RecipeCard
+                  key={recipe.id}
+                  name={recipe.name}
+                  subtitle={`${recipe.tags.join(', ')} • ${app.averageRating(recipe)} i betyg`}
+                />
+              ))
+            ) : (
+              <Text style={styles.detailMeta}>Inga publika recept an sa lange.</Text>
+            )}
             <Text style={styles.sectionTitle}>Basvaror</Text>
             <View style={styles.pantryRow}>
               <TextInput

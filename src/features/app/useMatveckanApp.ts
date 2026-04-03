@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { DAYS, DEFAULT_TAGS } from '../../domain/constants';
 import {
@@ -22,6 +22,7 @@ import {
   getSupabaseStatusLabel,
 } from '../../lib/supabase/client';
 import { requestMagicLink } from '../../lib/supabase/auth';
+import { loadCatalogRecipes } from '../../lib/supabase/repository';
 
 const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
   Mondag: 'Vegetariskt',
@@ -46,6 +47,48 @@ export const useMatveckanApp = () => {
   );
   const [authFeedback, setAuthFeedback] = useState<string | null>(null);
   const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
+  const [catalogFeedback, setCatalogFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!supabaseClient) {
+      setCatalogFeedback(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const run = async () => {
+      try {
+        const remoteRecipes = await loadCatalogRecipes(supabaseClient);
+        if (!isMounted || remoteRecipes.length === 0) {
+          return;
+        }
+
+        setRecipes((current) => {
+          const localUserRecipes = current.filter((recipe) => recipe.ownerId);
+          return [...remoteRecipes, ...localUserRecipes];
+        });
+        setSelectedDiscoverRecipeId((current) => current ?? remoteRecipes[0]?.id ?? null);
+        setCatalogFeedback('Recept laddade från Supabase');
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setCatalogFeedback(
+          error instanceof Error ? error.message : 'Kunde inte ladda recept från Supabase',
+        );
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabaseClient]);
 
   const currentUser = profiles.find((profile) => profile.id === currentUserId) ?? null;
   const libraryRecipes = recipes.filter((recipe) => recipe.ownerId === currentUserId);
@@ -77,6 +120,7 @@ export const useMatveckanApp = () => {
     authFeedback,
     isSendingMagicLink,
     authMode: supabaseClient ? 'supabase' : 'local',
+    catalogFeedback,
     templateTags,
     weeklyPlan,
     signIn: async (name: string, email: string) => {

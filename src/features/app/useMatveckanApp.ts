@@ -23,6 +23,7 @@ import {
 } from '../../lib/supabase/client';
 import { requestMagicLink } from '../../lib/supabase/auth';
 import { ensureProfileForSessionUser, loadSessionUser } from '../../lib/supabase/profileSync';
+import { createRecipeRecord, loadOwnedRecipes } from '../../lib/supabase/recipeMutations';
 import { loadCatalogRecipes } from '../../lib/supabase/repository';
 
 const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
@@ -50,6 +51,7 @@ export const useMatveckanApp = () => {
   const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
   const [catalogFeedback, setCatalogFeedback] = useState<string | null>(null);
   const [sessionFeedback, setSessionFeedback] = useState<string | null>(null);
+  const [recipeFeedback, setRecipeFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -91,6 +93,48 @@ export const useMatveckanApp = () => {
       isMounted = false;
     };
   }, [supabaseClient]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!supabaseClient || !currentUserId) {
+      setRecipeFeedback(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const run = async () => {
+      try {
+        const ownedRecipes = await loadOwnedRecipes(supabaseClient, currentUserId);
+        if (!isMounted) {
+          return;
+        }
+
+        setRecipes((current) => {
+          const sharedRecipes = current.filter((recipe) => recipe.ownerId !== currentUserId);
+          return [...sharedRecipes, ...ownedRecipes];
+        });
+        if (ownedRecipes.length > 0) {
+          setRecipeFeedback('Egna recept laddade från Supabase');
+        }
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setRecipeFeedback(
+          error instanceof Error ? error.message : 'Kunde inte ladda egna recept från Supabase',
+        );
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUserId, supabaseClient]);
 
   useEffect(() => {
     let isMounted = true;
@@ -167,6 +211,7 @@ export const useMatveckanApp = () => {
     authMode: supabaseClient ? 'supabase' : 'local',
     catalogFeedback,
     sessionFeedback,
+    recipeFeedback,
     templateTags,
     weeklyPlan,
     signIn: async (name: string, email: string) => {
@@ -190,7 +235,7 @@ export const useMatveckanApp = () => {
       setAuthFeedback(null);
       return profile;
     },
-    addRecipe: (input: {
+    addRecipe: async (input: {
       name: string;
       imageUri?: string;
       tags: string[];
@@ -206,7 +251,22 @@ export const useMatveckanApp = () => {
         ownerId: currentUserId,
         ...input,
       });
+
+      if (supabaseClient) {
+        try {
+          const savedRecipe = await createRecipeRecord(supabaseClient, recipe);
+          setRecipes((current) => [savedRecipe, ...current.filter((entry) => entry.id !== savedRecipe.id)]);
+          setRecipeFeedback(`Recept sparat i Supabase: ${savedRecipe.name}`);
+        } catch (error) {
+          setRecipeFeedback(
+            error instanceof Error ? error.message : 'Kunde inte spara recept i Supabase',
+          );
+        }
+        return;
+      }
+
       setRecipes((current) => [recipe, ...current]);
+      setRecipeFeedback(null);
     },
     copyRecipe: (recipeId: string) => {
       if (!currentUserId) {

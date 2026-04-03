@@ -23,6 +23,7 @@ import {
 } from '../../lib/supabase/client';
 import { requestMagicLink } from '../../lib/supabase/auth';
 import { ensureProfileForSessionUser, loadSessionUser } from '../../lib/supabase/profileSync';
+import { copyRecipeRecord } from '../../lib/supabase/recipeCopy';
 import { createRecipeRecord, loadOwnedRecipes } from '../../lib/supabase/recipeMutations';
 import { loadCatalogRecipes } from '../../lib/supabase/repository';
 
@@ -270,6 +271,25 @@ export const useMatveckanApp = () => {
     },
     copyRecipe: (recipeId: string) => {
       if (!currentUserId) {
+        return;
+      }
+
+      if (supabaseClient) {
+        const sourceRecipe = recipes.find((recipe) => recipe.id === recipeId);
+        if (!sourceRecipe) {
+          return;
+        }
+
+        void copyRecipeRecord(supabaseClient, sourceRecipe, currentUserId)
+          .then((copiedRecipe) => {
+            setRecipes((current) => [copiedRecipe, ...current]);
+            setRecipeFeedback(`Recept kopierat till ditt bibliotek: ${copiedRecipe.name}`);
+          })
+          .catch((error) => {
+            setRecipeFeedback(
+              error instanceof Error ? error.message : 'Kunde inte kopiera recept i Supabase',
+            );
+          });
         return;
       }
 

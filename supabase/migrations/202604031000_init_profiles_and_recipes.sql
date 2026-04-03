@@ -46,6 +46,36 @@ create table if not exists public.recipe_comments (
   updated_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.weekly_templates (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.weekly_template_days (
+  template_id uuid not null references public.weekly_templates (id) on delete cascade,
+  day text not null,
+  tag text not null,
+  primary key (template_id, day)
+);
+
+create table if not exists public.weekly_plans (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles (id) on delete cascade,
+  template_id uuid references public.weekly_templates (id) on delete set null,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.plan_days (
+  plan_id uuid not null references public.weekly_plans (id) on delete cascade,
+  day text not null,
+  tag text not null,
+  recipe_id uuid references public.recipes (id) on delete set null,
+  primary key (plan_id, day)
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -77,6 +107,18 @@ execute function public.set_updated_at();
 drop trigger if exists set_recipe_comments_updated_at on public.recipe_comments;
 create trigger set_recipe_comments_updated_at
 before update on public.recipe_comments
+for each row
+execute function public.set_updated_at();
+
+drop trigger if exists set_weekly_templates_updated_at on public.weekly_templates;
+create trigger set_weekly_templates_updated_at
+before update on public.weekly_templates
+for each row
+execute function public.set_updated_at();
+
+drop trigger if exists set_weekly_plans_updated_at on public.weekly_plans;
+create trigger set_weekly_plans_updated_at
+before update on public.weekly_plans
 for each row
 execute function public.set_updated_at();
 
@@ -113,6 +155,10 @@ alter table public.profiles enable row level security;
 alter table public.recipes enable row level security;
 alter table public.recipe_ratings enable row level security;
 alter table public.recipe_comments enable row level security;
+alter table public.weekly_templates enable row level security;
+alter table public.weekly_template_days enable row level security;
+alter table public.weekly_plans enable row level security;
+alter table public.plan_days enable row level security;
 
 drop policy if exists "profiles select own row" on public.profiles;
 create policy "profiles select own row"
@@ -234,3 +280,93 @@ create policy "comments delete own"
 on public.recipe_comments
 for delete
 using (user_id = auth.uid());
+
+drop policy if exists "weekly templates read own" on public.weekly_templates;
+create policy "weekly templates read own"
+on public.weekly_templates
+for select
+using (owner_id = auth.uid());
+
+drop policy if exists "weekly templates insert own" on public.weekly_templates;
+create policy "weekly templates insert own"
+on public.weekly_templates
+for insert
+with check (owner_id = auth.uid());
+
+drop policy if exists "weekly templates update own" on public.weekly_templates;
+create policy "weekly templates update own"
+on public.weekly_templates
+for update
+using (owner_id = auth.uid())
+with check (owner_id = auth.uid());
+
+drop policy if exists "weekly template days read own" on public.weekly_template_days;
+create policy "weekly template days read own"
+on public.weekly_template_days
+for select
+using (
+  exists (
+    select 1
+    from public.weekly_templates wt
+    where wt.id = template_id
+      and wt.owner_id = auth.uid()
+  )
+);
+
+drop policy if exists "weekly template days insert own" on public.weekly_template_days;
+create policy "weekly template days insert own"
+on public.weekly_template_days
+for insert
+with check (
+  exists (
+    select 1
+    from public.weekly_templates wt
+    where wt.id = template_id
+      and wt.owner_id = auth.uid()
+  )
+);
+
+drop policy if exists "weekly plans read own" on public.weekly_plans;
+create policy "weekly plans read own"
+on public.weekly_plans
+for select
+using (owner_id = auth.uid());
+
+drop policy if exists "weekly plans insert own" on public.weekly_plans;
+create policy "weekly plans insert own"
+on public.weekly_plans
+for insert
+with check (owner_id = auth.uid());
+
+drop policy if exists "weekly plans update own" on public.weekly_plans;
+create policy "weekly plans update own"
+on public.weekly_plans
+for update
+using (owner_id = auth.uid())
+with check (owner_id = auth.uid());
+
+drop policy if exists "plan days read own" on public.plan_days;
+create policy "plan days read own"
+on public.plan_days
+for select
+using (
+  exists (
+    select 1
+    from public.weekly_plans wp
+    where wp.id = plan_id
+      and wp.owner_id = auth.uid()
+  )
+);
+
+drop policy if exists "plan days insert own" on public.plan_days;
+create policy "plan days insert own"
+on public.plan_days
+for insert
+with check (
+  exists (
+    select 1
+    from public.weekly_plans wp
+    where wp.id = plan_id
+      and wp.owner_id = auth.uid()
+  )
+);

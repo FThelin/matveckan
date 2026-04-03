@@ -27,6 +27,7 @@ import { copyRecipeRecord } from '../../lib/supabase/recipeCopy';
 import { addRecipeCommentRecord, upsertRecipeRatingRecord } from '../../lib/supabase/recipeFeedback';
 import { createRecipeRecord, loadOwnedRecipes } from '../../lib/supabase/recipeMutations';
 import { loadCatalogRecipes } from '../../lib/supabase/repository';
+import { createWeeklyTemplateRecord, saveWeeklyPlanRecord } from '../../lib/supabase/weeklyPlans';
 
 const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
   Mondag: 'Vegetariskt',
@@ -397,6 +398,19 @@ export const useMatveckanApp = () => {
         recipes,
       });
       setWeeklyPlan(plan);
+
+      if (supabaseClient) {
+        void createWeeklyTemplateRecord(supabaseClient, template)
+          .then(() => saveWeeklyPlanRecord(supabaseClient, plan, template.id))
+          .then(() => {
+            setRecipeFeedback('Veckoplan sparad i Supabase');
+          })
+          .catch((error) => {
+            setRecipeFeedback(
+              error instanceof Error ? error.message : 'Kunde inte spara veckoplan i Supabase',
+            );
+          });
+      }
     },
     regenerateDay: (day: DayOfWeek) => {
       if (!currentUserId || !weeklyPlan) {

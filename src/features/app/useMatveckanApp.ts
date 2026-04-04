@@ -21,7 +21,11 @@ import {
   createSupabaseClient,
   getSupabaseStatusLabel,
 } from '../../lib/supabase/client';
-import { requestMagicLink } from '../../lib/supabase/auth';
+import {
+  buildAuthRedirectUrl,
+  requestMagicLink,
+  subscribeToAuthChanges,
+} from '../../lib/supabase/auth';
 import { ensureProfileForSessionUser, loadSessionUser } from '../../lib/supabase/profileSync';
 import { copyRecipeRecord } from '../../lib/supabase/recipeCopy';
 import { addRecipeCommentRecord, upsertRecipeRatingRecord } from '../../lib/supabase/recipeFeedback';
@@ -40,6 +44,7 @@ const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
 });
 
 export const useMatveckanApp = () => {
+  const redirectUrl = buildAuthRedirectUrl();
   const supabaseConfig = buildSupabaseConfig();
   const supabaseClient = createSupabaseClient(supabaseConfig);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
@@ -98,6 +103,44 @@ export const useMatveckanApp = () => {
   }, [supabaseClient]);
 
   useEffect(() => {
+    if (!supabaseClient) {
+      return undefined;
+    }
+
+    const subscription = subscribeToAuthChanges(supabaseClient, (_event, session) => {
+      const user = session?.user;
+      if (!user?.id || !user.email) {
+        setProfiles([]);
+        setCurrentUserId(null);
+        return;
+      }
+      const userEmail = user.email;
+
+      const profileName =
+        typeof user.user_metadata?.name === 'string' && user.user_metadata.name.trim()
+          ? user.user_metadata.name.trim()
+          : userEmail.split('@')[0] ?? 'Anvandare';
+
+      setProfiles((current) => {
+        const nextProfile: UserProfile = {
+          id: user.id,
+          email: userEmail,
+          name: profileName,
+          pantryItems:
+            current.find((profile) => profile.id === user.id)?.pantryItems ?? ['salt', 'peppar', 'olivolja'],
+        };
+        return [nextProfile];
+      });
+      setCurrentUserId(user.id);
+      setSessionFeedback(`Inloggad som ${userEmail}`);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabaseClient]);
+
+  useEffect(() => {
     let isMounted = true;
 
     if (!supabaseClient || !currentUserId) {
@@ -151,8 +194,15 @@ export const useMatveckanApp = () => {
 
     const run = async () => {
       try {
-        const authUser = await loadSessionUser(supabaseClient);
-        if (!isMounted || !authUser) {
+          const authUser = await loadSessionUser(supabaseClient);
+        if (!isMounted) {
+          return;
+        }
+
+        if (!authUser) {
+          setProfiles([]);
+          setCurrentUserId(null);
+          setSessionFeedback('Ingen aktiv Supabase-session');
           return;
         }
 
@@ -222,7 +272,7 @@ export const useMatveckanApp = () => {
         setIsSendingMagicLink(true);
         setAuthFeedback(null);
         try {
-          await requestMagicLink(supabaseClient, email);
+          await requestMagicLink(supabaseClient, email, redirectUrl);
           setAuthFeedback(`Magisk lank skickad till ${email.trim().toLowerCase()}`);
         } catch (error) {
           setAuthFeedback(error instanceof Error ? error.message : 'Kunde inte skicka inloggningslank');
@@ -238,6 +288,7 @@ export const useMatveckanApp = () => {
       setAuthFeedback(null);
       return profile;
     },
+    authRedirectUrl: redirectUrl,
     addRecipe: async (input: {
       name: string;
       imageUri?: string;

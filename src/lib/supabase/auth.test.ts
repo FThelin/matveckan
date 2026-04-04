@@ -1,4 +1,4 @@
-import { requestMagicLink, resolveCurrentAuthUser } from './auth';
+import { requestMagicLink, resolveCurrentAuthUser, subscribeToAuthChanges } from './auth';
 
 describe('supabase auth adapter', () => {
   it('requests a magic link from Supabase auth', async () => {
@@ -9,10 +9,13 @@ describe('supabase auth adapter', () => {
       },
     };
 
-    await requestMagicLink(client as never, 'fredrik@example.com');
+    await requestMagicLink(client as never, 'fredrik@example.com', 'matveckan://auth');
 
     expect(signInWithOtp).toHaveBeenCalledWith({
       email: 'fredrik@example.com',
+      options: {
+        emailRedirectTo: 'matveckan://auth',
+      },
     });
   });
 
@@ -26,9 +29,29 @@ describe('supabase auth adapter', () => {
       },
     };
 
-    await expect(requestMagicLink(client as never, 'fredrik@example.com')).rejects.toThrow(
+    await expect(
+      requestMagicLink(client as never, 'fredrik@example.com', 'matveckan://auth'),
+    ).rejects.toThrow(
       'Rate limit reached',
     );
+  });
+
+  it('subscribes to Supabase auth state changes', () => {
+    const listener = jest.fn();
+    const subscription = { unsubscribe: jest.fn() };
+    const onAuthStateChange = jest.fn(() => ({
+      data: { subscription },
+    }));
+    const client = {
+      auth: {
+        onAuthStateChange,
+      },
+    };
+
+    const result = subscribeToAuthChanges(client as never, listener);
+
+    expect(onAuthStateChange).toHaveBeenCalled();
+    expect(result).toBe(subscription);
   });
 
   it('maps the current auth user from a Supabase session', () => {

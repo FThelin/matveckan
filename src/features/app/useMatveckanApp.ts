@@ -44,9 +44,9 @@ const createInitialTemplateTags = (): Record<DayOfWeek, string> => ({
 });
 
 export const useMatveckanApp = () => {
-  const redirectUrl = buildAuthRedirectUrl();
-  const supabaseConfig = buildSupabaseConfig();
-  const supabaseClient = createSupabaseClient(supabaseConfig);
+  const redirectUrl = useMemo(() => buildAuthRedirectUrl(), []);
+  const supabaseConfig = useMemo(() => buildSupabaseConfig(), []);
+  const supabaseClient = useMemo(() => createSupabaseClient(supabaseConfig), [supabaseConfig]);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([...seedRecipes, ...communityRecipes]);

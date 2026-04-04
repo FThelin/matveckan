@@ -39,6 +39,41 @@ export const subscribeToAuthChanges = (
   listener: (event: AuthChangeEvent, session: Session | null) => void,
 ) => client.auth.onAuthStateChange(listener).data.subscription;
 
+const getTokensFromUrl = (url: string) => {
+  const decoded = decodeURIComponent(url);
+  const fragment = decoded.includes('#') ? decoded.split('#')[1] ?? '' : '';
+  const query = fragment || (decoded.includes('?') ? decoded.split('?')[1] ?? '' : '');
+  const params = new URLSearchParams(query);
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if (!accessToken || !refreshToken) {
+    return null;
+  }
+
+  return {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  };
+};
+
+export const createSessionFromUrl = async (
+  client: SupabaseClient,
+  url: string,
+) => {
+  const tokens = getTokensFromUrl(url);
+  if (!tokens) {
+    return null;
+  }
+
+  const { data, error } = await client.auth.setSession(tokens);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data.session;
+};
+
 export const resolveCurrentAuthUser = (session: Session | null): AuthUser | null => {
   const user = session?.user;
   if (!user?.email) {

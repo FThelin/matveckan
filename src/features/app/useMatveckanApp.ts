@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import * as Linking from 'expo-linking';
 
 import { DAYS, DEFAULT_TAGS } from '../../domain/constants';
 import {
@@ -23,6 +24,7 @@ import {
 } from '../../lib/supabase/client';
 import {
   buildAuthRedirectUrl,
+  createSessionFromUrl,
   requestMagicLink,
   subscribeToAuthChanges,
 } from '../../lib/supabase/auth';
@@ -137,6 +139,39 @@ export const useMatveckanApp = () => {
 
     return () => {
       subscription.unsubscribe();
+    };
+  }, [supabaseClient]);
+
+  useEffect(() => {
+    if (!supabaseClient) {
+      return undefined;
+    }
+
+    const handleUrl = async (url: string | null) => {
+      if (!url) {
+        return;
+      }
+
+      try {
+        const session = await createSessionFromUrl(supabaseClient, url);
+        if (session?.user?.email) {
+          setAuthFeedback(`Inloggning mottagen för ${session.user.email}`);
+        }
+      } catch (error) {
+        setAuthFeedback(
+          error instanceof Error ? error.message : 'Kunde inte skapa session från länken',
+        );
+      }
+    };
+
+    void Linking.getInitialURL().then(handleUrl);
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      void handleUrl(event.url);
+    });
+
+    return () => {
+      subscription.remove();
     };
   }, [supabaseClient]);
 

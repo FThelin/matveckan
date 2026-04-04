@@ -1,4 +1,9 @@
-import { requestMagicLink, resolveCurrentAuthUser, subscribeToAuthChanges } from './auth';
+import {
+  createSessionFromUrl,
+  requestMagicLink,
+  resolveCurrentAuthUser,
+  subscribeToAuthChanges,
+} from './auth';
 
 describe('supabase auth adapter', () => {
   it('requests a magic link from Supabase auth', async () => {
@@ -52,6 +57,48 @@ describe('supabase auth adapter', () => {
 
     expect(onAuthStateChange).toHaveBeenCalled();
     expect(result).toBe(subscription);
+  });
+
+  it('creates a session from a deep link URL that contains auth tokens', async () => {
+    const setSession = jest.fn().mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-1',
+          refresh_token: 'refresh-1',
+          user: { id: 'user-1', email: 'fredrik@example.com' },
+        },
+      },
+      error: null,
+    });
+    const client = {
+      auth: {
+        setSession,
+      },
+    };
+
+    await createSessionFromUrl(
+      client as never,
+      'matveckan://auth#access_token=token-1&refresh_token=refresh-1&type=magiclink',
+    );
+
+    expect(setSession).toHaveBeenCalledWith({
+      access_token: 'token-1',
+      refresh_token: 'refresh-1',
+    });
+  });
+
+  it('ignores incoming URLs without auth tokens', async () => {
+    const setSession = jest.fn();
+    const client = {
+      auth: {
+        setSession,
+      },
+    };
+
+    const session = await createSessionFromUrl(client as never, 'matveckan://auth');
+
+    expect(session).toBeNull();
+    expect(setSession).not.toHaveBeenCalled();
   });
 
   it('maps the current auth user from a Supabase session', () => {

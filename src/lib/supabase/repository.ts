@@ -23,7 +23,7 @@ export const loadProfileById = async (
     .from('profiles')
     .select('id, email, display_name, pantry_items')
     .eq('id', profileId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw new Error(error.message);

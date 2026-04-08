@@ -30,11 +30,11 @@ describe('supabase profile sync', () => {
   });
 
   it('creates a profile row when the session user has no profile yet', async () => {
-    const single = jest.fn().mockResolvedValue({
+    const maybeSingle = jest.fn().mockResolvedValue({
       data: null,
       error: null,
     });
-    const eq = jest.fn(() => ({ single }));
+    const eq = jest.fn(() => ({ maybeSingle }));
     const select = jest.fn(() => ({ eq }));
     const upsert = jest.fn().mockResolvedValue({ error: null });
     const from = jest.fn((table: string) =>
@@ -50,6 +50,7 @@ describe('supabase profile sync', () => {
 
     expect(upsert).toHaveBeenCalledWith({
       id: 'user-1',
+      email: 'fredrik@example.com',
       display_name: 'Fredrik',
       pantry_items: ['salt', 'peppar', 'olivolja'],
     });

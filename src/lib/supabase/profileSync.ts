@@ -25,7 +25,7 @@ export const ensureProfileForSessionUser = async (
     .from('profiles')
     .select('id, email, display_name, pantry_items')
     .eq('id', authUser.id)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw new Error(error.message);

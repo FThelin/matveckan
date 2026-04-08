@@ -50,7 +50,7 @@ describe('supabase repository', () => {
   });
 
   it('loads a user profile by id', async () => {
-    const single = jest.fn().mockResolvedValue({
+    const maybeSingle = jest.fn().mockResolvedValue({
       data: {
         id: 'user-1',
         email: 'fredrik@example.com',
@@ -59,7 +59,7 @@ describe('supabase repository', () => {
       },
       error: null,
     });
-    const eq = jest.fn(() => ({ single }));
+    const eq = jest.fn(() => ({ maybeSingle }));
     const select = jest.fn(() => ({ eq }));
     const from = jest.fn(() => ({ select }));
     const client = { from };
@@ -76,11 +76,11 @@ describe('supabase repository', () => {
   });
 
   it('returns null when the profile row does not exist', async () => {
-    const single = jest.fn().mockResolvedValue({
+    const maybeSingle = jest.fn().mockResolvedValue({
       data: null,
       error: null,
     });
-    const eq = jest.fn(() => ({ single }));
+    const eq = jest.fn(() => ({ maybeSingle }));
     const select = jest.fn(() => ({ eq }));
     const from = jest.fn(() => ({ select }));
     const client = { from };

@@ -18,6 +18,7 @@ describe('supabase record mapping', () => {
 
     expect(toProfileRow(profile)).toEqual({
       id: 'user-1',
+      email: 'fredrik@example.com',
       display_name: 'Fredrik',
       pantry_items: ['salt', 'peppar'],
     });

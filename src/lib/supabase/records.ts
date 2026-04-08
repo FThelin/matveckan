@@ -9,6 +9,7 @@ export type ProfileRow = {
 
 export type ProfileInsert = {
   id: string;
+  email: string;
   display_name: string;
   pantry_items: string[];
 };
@@ -43,6 +44,7 @@ export type RecipeInsert = {
 
 export const toProfileRow = (profile: UserProfile): ProfileInsert => ({
   id: profile.id,
+  email: profile.email,
   display_name: profile.name,
   pantry_items: profile.pantryItems,
 });
